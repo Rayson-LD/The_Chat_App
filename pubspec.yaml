@@ -1,4 +1,4 @@
-name: meme_organization
+name: appname
 description: Group Chat App 
 
 # The following line prevents the package from being accidentally published to
@@ -52,17 +52,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-      - assets/images/signin_button.png
-      - assets/images/mimi1.gif
-      - assets/images/mimi2.gif
-      - assets/images/mimi3.gif
-      - assets/images/mimi4.gif
-      - assets/images/mimi5.gif
-      - assets/images/mimi6.gif
-      - assets/images/mimi7.gif
-      - assets/images/mimi8.gif
-      - assets/images/mimi9.gif
-      - assets/images/img_not_available.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.
