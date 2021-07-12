@@ -18,5 +18,5 @@ A simple chat application using firebase and flutter
 </ol>
 
 # errors
-cannot automatically update messages
-cannot delete or edit messages
+- cannot automatically update messages<br>
+- cannot delete or edit messages
