@@ -31,14 +31,6 @@ class HomeScreenState extends State<HomeScreen> {
   {
     return AppBar(
       automaticallyImplyLeading: false,  //back button removal
-      actions: [
-        IconButton(onPressed: (){
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Settings()),
-          );
-        }, icon: Icon(Icons.settings)),
-      ],
         title : TextFormField(
           style: TextStyle(fontSize: 18.0, color: Colors.white),
           controller: searchText,
