@@ -1,21 +1,24 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meme_organization/Pages/AccountSettingsPage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:meme_organization/Widgets/FullImageWidget.dart';
 import 'package:meme_organization/Widgets/ProgressWidget.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:photo_view/photo_view.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../main.dart';
 
 class Chat extends StatelessWidget {
+
   final String receiverid;
   final String receiverAvatar;
   final String receiverName;
@@ -32,25 +35,44 @@ class Chat extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.lightBlueAccent,
         actions: [
+          PopupMenuButton<int>(
+            onSelected: (item) => handleClick(context,item),
+            itemBuilder: (context) => [
+              PopupMenuItem<int>(value: 0, child: Text('Settings')),
+              PopupMenuItem<int>(value: 1, child: Text('Search')),
+            ],
+          ),
+        ],
+        iconTheme: IconThemeData(
+          color: Colors.white
+        ),
+        title: Row(children: [
           Padding(
             padding: EdgeInsets.all(12.0),
             child: CircleAvatar(
               backgroundColor: Colors.black,
               backgroundImage: CachedNetworkImageProvider(receiverAvatar),
             ),
-          )
+          ),
+          Text(
+            receiverName,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),
+          ),
         ],
-        iconTheme: IconThemeData(
-          color: Colors.white
-        ),
-        title: Text(
-          receiverName,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),
         ),
         centerTitle: true,
       ),
       body: ChatScreen(receiverid : receiverid, receiverAvatar : receiverAvatar,receiverName: receiverName),
     );
   }
+  void handleClick(BuildContext context,int item) {
+    switch (item) {
+      case 0:Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context) => Settings()));
+      break;
+    }
+  }
+
+
 }
 
 class ChatScreen extends StatefulWidget {
@@ -64,6 +86,7 @@ class ChatScreen extends StatefulWidget {
     @required this.receiverAvatar,
     @required this.receiverName,
 }) : super(key : key);
+
   @override
   State createState() => ChatScreenState(receiverid : receiverid, receiverAvatar : receiverAvatar, receiverName: receiverName);
 }
@@ -303,7 +326,6 @@ class ChatScreenState extends State<ChatScreen> {
     }
   }
 
-
   createListMessages() {
     return Flexible(child: chatId == "" ? Center(
         child: CircularProgressIndicator(
@@ -481,6 +503,16 @@ class ChatScreenState extends State<ChatScreen> {
                                 ?Container(
                               child: Column(
                                children: [
+                                 Padding(padding: EdgeInsets.only(right: 100.0),
+                                   child: Text(
+                                     receiverName,
+                                     style: TextStyle(
+                                       color: Colors.blueAccent,
+                                       fontWeight: FontWeight.bold,
+                                       fontStyle: FontStyle.italic
+                                     ),
+                                   ),
+                                 ),
                                  Padding(padding: EdgeInsets.only(right: 75.0),
                                    child: Text(
                                      document["content"],
@@ -511,47 +543,105 @@ class ChatScreenState extends State<ChatScreen> {
                               //Image Msg
                               : document["type"] == 1
                             ?Container(
-                              child: FlatButton(
-                                child: Material(
-                                  child: CachedNetworkImage(
-                                    placeholder: (context,url) => Container(
-                                      child: CircularProgressIndicator(
-                                        valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
-                                      ),
-                                      width: 200,
-                                      height: 200,
-                                      padding: EdgeInsets.all(70),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey,borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    errorWidget: (context,url,error) => Material(
-                                      child: Image.asset("",width: 200,height: 200,fit: BoxFit.cover,),
-                                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                                      clipBehavior: Clip.hardEdge,
-                                    ),
-                                    imageUrl: document["content"],
-                                    width: 200,
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                  ),
-                                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                                  clipBehavior: Clip.hardEdge,
-                                ),
-                                onPressed: (){
-                                 Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
-                                },
-                              ),
+                               child : Column(
+                                 children: [
+                                 Padding(padding: EdgeInsets.only(right: 100.0),
+                                   child: Text(
+                                     receiverName,
+                                     style: TextStyle(
+                                         color: Colors.blueAccent,
+                                         fontWeight: FontWeight.bold,
+                                         fontStyle: FontStyle.italic
+                                     ),
+                                   ),
+                                 ),
+                                 FlatButton(
+                                   child: Material(
+                                     child:  CachedNetworkImage(
+                                       placeholder: (context,url) => Container(
+                                         child: CircularProgressIndicator(
+                                           valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
+                                         ),
+                                         width: 200,
+                                         height: 250,
+                                         padding: EdgeInsets.all(70),
+                                         decoration: BoxDecoration(
+                                           color: Colors.grey,borderRadius: BorderRadius.circular(8),
+                                         ),
+                                       ),
+                                       errorWidget: (context,url,error) => Material(
+                                         child: Image.asset("assets/images/img_not_available.jpeg",width: 200,height: 200,fit: BoxFit.cover,),
+                                         borderRadius: BorderRadius.all(Radius.circular(8)),
+                                         clipBehavior: Clip.hardEdge,
+                                       ),
+                                       imageUrl: document["content"],
+                                       imageBuilder: (context, imageProvider) => Container(
+                                         width: 200,
+                                         height: 250,
+                                         decoration: BoxDecoration(
+                                           borderRadius:BorderRadius.circular(8),
+                                           image: DecorationImage(
+                                               image: imageProvider,fit: BoxFit.cover),
+                                         ),
+                                       ),
+                                     ),
+                                     clipBehavior: Clip.hardEdge,
+                                   ),
+                                   onPressed: (){
+                                     Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
+                                   },
+                                 ),
+                                 Padding(padding: EdgeInsets.only(left: 100.0),
+                                   child :Text(
+                                     DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                                     ),
+                                     style: TextStyle(
+                                       color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
+                                     ),
+                                   ),
+                                 ),
+                               ],
+                               ),
+                               decoration: BoxDecoration(
+                                 color: Colors.green,
+                                 borderRadius: BorderRadius.circular(8),
+                               ),
                               margin: EdgeInsets.only(left: 10),
                             )
                              //gif
                               :Container(
-                                child: Image.asset("assets/images/${document["content"]}.gif",
-                                  width: 200,
-                                  height: 200,
-                                  fit: BoxFit.cover,),
-                                  margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
-                                  )
+                                child: Column(
+                                  children: [
+                                    Padding(padding: EdgeInsets.only(right: 100.0),
+                                      child: Text(
+                                        receiverName,
+                                        style: TextStyle(
+                                          color: Colors.blueAccent,
+                                            fontWeight: FontWeight.bold,
+                                            fontStyle: FontStyle.italic
+                                        ),
+                                      ),
+                                    ),
+                                  Image.asset("assets/images/${document["content"]}.gif",
+                                    width: 200,
+                                    height: 200,
+                                    fit: BoxFit.cover,),
+                                    Padding(padding: EdgeInsets.only(left: 100.0),
+                                      child :Text(
+                                        DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                                        ),
+                                        style: TextStyle(
+                                          color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                                ),
+                               decoration: BoxDecoration(
+                                 color: Colors.green,borderRadius: BorderRadius.circular(8),
+                               ),
+                                margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10,left: 20),
+                             )
 
                           ],
 
