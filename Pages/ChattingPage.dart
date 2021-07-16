@@ -1,73 +1,138 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meme_organization/Pages/AccountSettingsPage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:meme_organization/Pages/HomePage.dart';
 import 'package:meme_organization/Widgets/FullImageWidget.dart';
 import 'package:meme_organization/Widgets/ProgressWidget.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
-import '../main.dart';
+import 'ThemePref.dart';
 
+class ThemeModel extends ChangeNotifier{
+  ThemePreferences _preferences = ThemePreferences();
+  bool get isDark => _isDark;
+  ThemeModel()
+  {
+    _isDark = false;
+    _preferences = ThemePreferences();
+    getPreferences();
+  }
+  getPreferences() async{
+    _isDark = await _preferences.getTheme();
+    notifyListeners();
+  }
+  set isDark(bool value){
+    _isDark = value;
+    _preferences.setTheme(value);
+    notifyListeners();
+  }
+}
 class Chat extends StatelessWidget {
-
   final String receiverid;
   final String receiverAvatar;
   final String receiverName;
   Chat({
-
     Key key,
     @required this.receiverid,
     @required this.receiverAvatar,
     @required this.receiverName,
-});
+  });
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.lightBlueAccent,
-        actions: [
-          PopupMenuButton<int>(
-            onSelected: (item) => handleClick(context,item),
-            itemBuilder: (context) => [
-              PopupMenuItem<int>(value: 0, child: Text('Settings')),
-              PopupMenuItem<int>(value: 1, child: Text('Search')),
-            ],
+    return ChangeNotifierProvider(
+      create : (_) => ThemeModel(),
+      child: Consumer(
+        builder: (context,ThemeModel themeNotifier,child){
+          return MaterialApp(
+              debugShowCheckedModeBanner: false,
+            theme: themeNotifier.isDark ? ThemeData.dark() : ThemeData.light(),
+            home : Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.lightBlueAccent,
+              actions: [
+                PopupMenuButton<int>(
+                  onSelected: (item) => handleClick(context,item),
+                  itemBuilder: (context) => [
+                    PopupMenuItem<int>(value: 0, child: Text('Settings',textAlign: TextAlign.start,)),
+                    PopupMenuItem<int>(value: 1, child: Text('Search',textAlign: TextAlign.start,)),
+                    PopupMenuItem<int>(value: 2,  child: FlatButton(
+          onPressed: (){
+          themeNotifier.isDark ? themeNotifier.isDark = false : themeNotifier.isDark = true;
+          },
+          child: Text(
+          themeNotifier.isDark ? "Light Theme" : "Dark Theme"
           ),
-        ],
-        iconTheme: IconThemeData(
-          color: Colors.white
-        ),
-        title: Row(children: [
-          Padding(
-            padding: EdgeInsets.all(12.0),
-            child: CircleAvatar(
-              backgroundColor: Colors.black,
-              backgroundImage: CachedNetworkImageProvider(receiverAvatar),
+          )),
+                    PopupMenuItem<int>(value: 3, child: Text('Exit',textAlign: TextAlign.start,)),
+                  ],
+                ),
+              ],
+              iconTheme: IconThemeData(
+                  color: Colors.white
+              ),
+              title: Row(children: [
+                Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black,
+                    backgroundImage: CachedNetworkImageProvider(receiverAvatar),
+                  ),
+                ),
+                Text(
+                  receiverName,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),
+                ),
+              ],
+              ),
+              centerTitle: true,
             ),
-          ),
-          Text(
-            receiverName,style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),
-          ),
-        ],
-        ),
-        centerTitle: true,
+            body: ChatScreen(receiverid : receiverid, receiverAvatar : receiverAvatar,receiverName: receiverName),
+          )
+          );
+        }
       ),
-      body: ChatScreen(receiverid : receiverid, receiverAvatar : receiverAvatar,receiverName: receiverName),
     );
+
   }
-  void handleClick(BuildContext context,int item) {
+   handleClick(BuildContext context,int item) {
     switch (item) {
       case 0:Navigator.of(context)
           .push(MaterialPageRoute(builder: (context) => Settings()));
+      break;
+      case 1:Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context) => HomeScreen()));
+      break;
+      case 3:showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Are you sure?'),
+            content: Text('Do you want to exit an App'),
+            actions: <Widget>[
+              FlatButton(
+                child: Text('No'),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
+              ),
+              FlatButton(
+                child: Text('Yes'),
+                onPressed: () {
+                  exit(0);
+                },
+              )
+            ],
+          );
+        },
+      ) ?? false;
       break;
     }
   }
@@ -81,11 +146,11 @@ class ChatScreen extends StatefulWidget {
   final String receiverName;
 
   ChatScreen({
-  Key key,
-  @required  this.receiverid,
+    Key key,
+    @required  this.receiverid,
     @required this.receiverAvatar,
     @required this.receiverName,
-}) : super(key : key);
+  }) : super(key : key);
 
   @override
   State createState() => ChatScreenState(receiverid : receiverid, receiverAvatar : receiverAvatar, receiverName: receiverName);
@@ -159,16 +224,15 @@ class ChatScreenState extends State<ChatScreen> {
     return WillPopScope(
       child: Stack(
         children: [
-          Column(
+
+           Column(
             children: [
               createListMessages(),
               createInput(),
-
               //show stickers
               (isDisplaySticker ? showStickers() : Container()),
             ],
           ),
-
           createLoading(),
         ],
       ),
@@ -382,23 +446,23 @@ class ChatScreenState extends State<ChatScreen> {
   {
     //messages - right side
     if(document["idFrom"] == id)
-      {
-        return Row(
-          children: [
-            document["type"] == 0
-            ?Container(
-              child: Column(
-                children: [
-                  Padding(padding: EdgeInsets.only(right: 75.0),
-                 child: Text(
+    {
+      return Row(
+        children: [
+          document["type"] == 0
+              ?Container(
+            child: Column(
+              children: [
+                Padding(padding: EdgeInsets.only(right: 75.0),
+                  child: Text(
                     document["content"],
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
-                  ),
-                    Padding(padding: EdgeInsets.only(left: 100.0),
+                ),
+                Padding(padding: EdgeInsets.only(left: 100.0),
                   child :Text(
                     DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
                     ),
@@ -406,333 +470,333 @@ class ChatScreenState extends State<ChatScreen> {
                       color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
                     ),
                   ),
+                ),
+              ],
+            ),
+            padding: EdgeInsets.fromLTRB(15, 10, 15, 10),
+            width: 200,
+            decoration: BoxDecoration(
+              color: Colors.lightBlueAccent,borderRadius: BorderRadius.circular(8),
+            ),
+            margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
+          )
+          //for image
+              : document["type"] == 1
+              ?Container(
+            child: FlatButton(
+              child: Material(
+                child: CachedNetworkImage(
+                  placeholder: (context,url) => Container(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
+                    ),
+                    width: 200,
+                    height: 200,
+                    padding: EdgeInsets.all(70),
+                    decoration: BoxDecoration(
+                      color: Colors.grey,borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  errorWidget: (context,url,error) => Material(
+                    child: Image.asset("assets/images/img_not_available.jpeg",width: 200,height: 200,fit: BoxFit.cover,),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                    clipBehavior: Clip.hardEdge,
+                  ),
+                  imageUrl: document["content"],
+                  width: 200,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.all(Radius.circular(8)),
+                clipBehavior: Clip.hardEdge,
               ),
-                ],
-              ),
-              padding: EdgeInsets.fromLTRB(15, 10, 15, 10),
+              onPressed: (){
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
+              },
+            ),
+            margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
+          )
+          //stickers
+              :Container(
+            child: Image.asset("assets/images/${document["content"]}.gif",
               width: 200,
-              decoration: BoxDecoration(
-                color: Colors.lightBlueAccent,borderRadius: BorderRadius.circular(8),
-              ),
-              margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
-            )
-            //for image
-                : document["type"] == 1
-            ?Container(
-              child: FlatButton(
-                child: Material(
+              height: 200,
+              fit: BoxFit.cover,),
+            margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
+          )
+        ],
+        mainAxisAlignment: MainAxisAlignment.end,
+      );
+    }
+    //Receiver Messages
+    else
+    {
+      return Container(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                //receiver prof image
+                (document["idFrom"] != id) ? Material(
                   child: CachedNetworkImage(
                     placeholder: (context,url) => Container(
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
                       ),
-                      width: 200,
-                      height: 200,
-                      padding: EdgeInsets.all(70),
+                      width: 35,
+                      height: 35,
+                      padding: EdgeInsets.all(10),
+                    ),
+                    imageUrl: receiverAvatar,
+                    fit: BoxFit.cover,
+                    imageBuilder: (context, imageProvider) => Container(
+                      width: 25,
+                      height: 25,
                       decoration: BoxDecoration(
-                        color: Colors.grey,borderRadius: BorderRadius.circular(8),
+                        shape: BoxShape.circle,
+                        image: DecorationImage(
+                            image: imageProvider, fit: BoxFit.cover),
                       ),
                     ),
-                    errorWidget: (context,url,error) => Material(
-                      child: Image.asset("assets/images/img_not_available.jpeg",width: 200,height: 200,fit: BoxFit.cover,),
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                      clipBehavior: Clip.hardEdge,
-                    ),
-                    imageUrl: document["content"],
-                    width: 200,
-                    height: 200,
-                    fit: BoxFit.cover,
                   ),
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                  clipBehavior: Clip.hardEdge,
-                ),
-                onPressed: (){
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
-                },
-              ),
-              margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
-            )
-            //stickers
-                :Container(
-                    child: Image.asset("assets/images/${document["content"]}.gif",
-                      width: 200,
-                      height: 200,
-                      fit: BoxFit.cover,),
-              margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10),
-            )
-          ],
-          mainAxisAlignment: MainAxisAlignment.end,
-        );
-      }
-    //Receiver Messages
-    else
-      {
-            return Container(
-              child: Column(
-                children: [
-                  Row(
-                          children: [
-                            //receiver prof image
-                            (document["idFrom"] != id) ? Material(
-                            child: CachedNetworkImage(
-                              placeholder: (context,url) => Container(
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
-                                ),
-                                width: 35,
-                                height: 35,
-                                padding: EdgeInsets.all(10),
+                ) :
+                Container(width: 35),
+
+                //display messages
+                document["type"] == 0
+                    ?Container(
+                  child: Column(
+                    children: [
+                      Padding(padding: EdgeInsets.only(right: 100.0),
+                        child: Text(
+                          receiverName,
+                          style: TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.italic
+                          ),
+                        ),
+                      ),
+                      Padding(padding: EdgeInsets.only(right: 75.0),
+                        child: Text(
+                          document["content"],
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Padding(padding: EdgeInsets.only(left: 100.0),
+                        child :Text(
+                          DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                          ),
+                          style: TextStyle(
+                            color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.fromLTRB(15, 10, 15, 10),
+                  width: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.green,borderRadius: BorderRadius.circular(8),
+                  ),
+                  margin: EdgeInsets.only(left: 10),
+                )
+                //Image Msg
+                    : document["type"] == 1
+                    ?Container(
+                  child : Column(
+                    children: [
+                      Padding(padding: EdgeInsets.only(right: 100.0),
+                        child: Text(
+                          receiverName,
+                          style: TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.italic
+                          ),
+                        ),
+                      ),
+                      FlatButton(
+                        child: Material(
+                          child:  CachedNetworkImage(
+                            placeholder: (context,url) => Container(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
                               ),
-                              imageUrl: receiverAvatar,
-                              fit: BoxFit.cover,
-                              imageBuilder: (context, imageProvider) => Container(
-                                width: 25,
-                                height: 25,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  image: DecorationImage(
-                                      image: imageProvider, fit: BoxFit.cover),
-                                ),
+                              width: 200,
+                              height: 250,
+                              padding: EdgeInsets.all(70),
+                              decoration: BoxDecoration(
+                                color: Colors.grey,borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            ) :
-                            Container(width: 35),
-
-                            //display messages
-                             document["type"] == 0
-                                ?Container(
-                              child: Column(
-                               children: [
-                                 Padding(padding: EdgeInsets.only(right: 100.0),
-                                   child: Text(
-                                     receiverName,
-                                     style: TextStyle(
-                                       color: Colors.blueAccent,
-                                       fontWeight: FontWeight.bold,
-                                       fontStyle: FontStyle.italic
-                                     ),
-                                   ),
-                                 ),
-                                 Padding(padding: EdgeInsets.only(right: 75.0),
-                                   child: Text(
-                                     document["content"],
-                                     style: TextStyle(
-                                       color: Colors.black,
-                                       fontWeight: FontWeight.w400,
-                                     ),
-                                   ),
-                                 ),
-                                 Padding(padding: EdgeInsets.only(left: 100.0),
-                                   child :Text(
-                                     DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
-                                     ),
-                                     style: TextStyle(
-                                       color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
-                                     ),
-                                   ),
-                                 ),
-                               ],
-                              ),
-                              padding: EdgeInsets.fromLTRB(15, 10, 15, 10),
+                            errorWidget: (context,url,error) => Material(
+                              child: Image.asset("assets/images/img_not_available.jpeg",width: 200,height: 200,fit: BoxFit.cover,),
+                              borderRadius: BorderRadius.all(Radius.circular(8)),
+                              clipBehavior: Clip.hardEdge,
+                            ),
+                            imageUrl: document["content"],
+                            imageBuilder: (context, imageProvider) => Container(
                               width: 200,
+                              height: 250,
                               decoration: BoxDecoration(
-                                color: Colors.green,borderRadius: BorderRadius.circular(8),
+                                borderRadius:BorderRadius.circular(8),
+                                image: DecorationImage(
+                                    image: imageProvider,fit: BoxFit.cover),
                               ),
-                              margin: EdgeInsets.only(left: 10),
-                            )
-                              //Image Msg
-                              : document["type"] == 1
-                            ?Container(
-                               child : Column(
-                                 children: [
-                                 Padding(padding: EdgeInsets.only(right: 100.0),
-                                   child: Text(
-                                     receiverName,
-                                     style: TextStyle(
-                                         color: Colors.blueAccent,
-                                         fontWeight: FontWeight.bold,
-                                         fontStyle: FontStyle.italic
-                                     ),
-                                   ),
-                                 ),
-                                 FlatButton(
-                                   child: Material(
-                                     child:  CachedNetworkImage(
-                                       placeholder: (context,url) => Container(
-                                         child: CircularProgressIndicator(
-                                           valueColor: AlwaysStoppedAnimation(Colors.lightBlueAccent),
-                                         ),
-                                         width: 200,
-                                         height: 250,
-                                         padding: EdgeInsets.all(70),
-                                         decoration: BoxDecoration(
-                                           color: Colors.grey,borderRadius: BorderRadius.circular(8),
-                                         ),
-                                       ),
-                                       errorWidget: (context,url,error) => Material(
-                                         child: Image.asset("assets/images/img_not_available.jpeg",width: 200,height: 200,fit: BoxFit.cover,),
-                                         borderRadius: BorderRadius.all(Radius.circular(8)),
-                                         clipBehavior: Clip.hardEdge,
-                                       ),
-                                       imageUrl: document["content"],
-                                       imageBuilder: (context, imageProvider) => Container(
-                                         width: 200,
-                                         height: 250,
-                                         decoration: BoxDecoration(
-                                           borderRadius:BorderRadius.circular(8),
-                                           image: DecorationImage(
-                                               image: imageProvider,fit: BoxFit.cover),
-                                         ),
-                                       ),
-                                     ),
-                                     clipBehavior: Clip.hardEdge,
-                                   ),
-                                   onPressed: (){
-                                     Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
-                                   },
-                                 ),
-                                 Padding(padding: EdgeInsets.only(left: 100.0),
-                                   child :Text(
-                                     DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
-                                     ),
-                                     style: TextStyle(
-                                       color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
-                                     ),
-                                   ),
-                                 ),
-                               ],
-                               ),
-                               decoration: BoxDecoration(
-                                 color: Colors.green,
-                                 borderRadius: BorderRadius.circular(8),
-                               ),
-                              margin: EdgeInsets.only(left: 10),
-                            )
-                             //gif
-                              :Container(
-                                child: Column(
-                                  children: [
-                                    Padding(padding: EdgeInsets.only(right: 100.0),
-                                      child: Text(
-                                        receiverName,
-                                        style: TextStyle(
-                                          color: Colors.blueAccent,
-                                            fontWeight: FontWeight.bold,
-                                            fontStyle: FontStyle.italic
-                                        ),
-                                      ),
-                                    ),
-                                  Image.asset("assets/images/${document["content"]}.gif",
-                                    width: 200,
-                                    height: 200,
-                                    fit: BoxFit.cover,),
-                                    Padding(padding: EdgeInsets.only(left: 100.0),
-                                      child :Text(
-                                        DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
-                                        ),
-                                        style: TextStyle(
-                                          color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                                ),
-                               decoration: BoxDecoration(
-                                 color: Colors.green,borderRadius: BorderRadius.circular(8),
-                               ),
-                                margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10,left: 20),
-                             )
-
-                          ],
-
-                  ),
-                  //time
-                  isLastMsgLeft(index) ?
-                      Container(
-                        width: 150,
-                        height: 25,
-                        child: Text(
-                          DateFormat("dd MMMM - hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
-                        ),
-                          style: TextStyle(
-                            color: Colors.white,fontSize: 14.0,fontStyle: FontStyle.italic
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                      ),
-                        margin: EdgeInsets.only(left:100,top:50,bottom:50),
-                        
-                        decoration: BoxDecoration(
-                            color: Colors.black,
-                          borderRadius: BorderRadius.circular(8)
+                          clipBehavior: Clip.hardEdge,
                         ),
-                      )
-                      :Container(
-
-                  )
-                ],
-                crossAxisAlignment: CrossAxisAlignment.start,
+                        onPressed: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => FullPhoto(url: document["content"])));
+                        },
                       ),
-              margin: EdgeInsets.only(bottom: 10),
-            );
-      }
+                      Padding(padding: EdgeInsets.only(left: 100.0),
+                        child :Text(
+                          DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                          ),
+                          style: TextStyle(
+                            color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  margin: EdgeInsets.only(left: 10),
+                )
+                //gif
+                    :Container(
+                  child: Column(
+                    children: [
+                      Padding(padding: EdgeInsets.only(right: 100.0),
+                        child: Text(
+                          receiverName,
+                          style: TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.italic
+                          ),
+                        ),
+                      ),
+                      Image.asset("assets/images/${document["content"]}.gif",
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,),
+                      Padding(padding: EdgeInsets.only(left: 100.0),
+                        child :Text(
+                          DateFormat("hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                          ),
+                          style: TextStyle(
+                            color: Colors.white,fontStyle: FontStyle.italic,fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green,borderRadius: BorderRadius.circular(8),
+                  ),
+                  margin: EdgeInsets.only(bottom: isLastMsgRight(index) ? 20 : 10,right: 10,left: 20),
+                )
+
+              ],
+
+            ),
+            //time
+            isLastMsgLeft(index) ?
+            Container(
+              width: 150,
+              height: 25,
+              child: Text(
+                DateFormat("dd MMMM - hh:mm:aa").format(DateTime.fromMillisecondsSinceEpoch(int.parse(document["timestamp"])),
+                ),
+                style: TextStyle(
+                    color: Colors.white,fontSize: 14.0,fontStyle: FontStyle.italic
+                ),
+                textAlign: TextAlign.center,
+              ),
+              margin: EdgeInsets.only(left:100,top:50,bottom:50),
+
+              decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8)
+              ),
+            )
+                :Container(
+
+            )
+          ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        margin: EdgeInsets.only(bottom: 10),
+      );
+    }
   }
   createInput()
   {
-  return Container(
-    child: Row(
-      children: [
-        Material(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 1.0),
-            child: IconButton(onPressed:uploadimageFile, icon: Icon(Icons.image),color: Colors.lightBlueAccent,),
+    return Container(
+      child: Row(
+        children: [
+          Material(
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 1.0),
+              child: IconButton(onPressed:uploadimageFile, icon: Icon(Icons.image),color: Colors.lightBlueAccent,),
+            ),
+            color: Colors.white,
           ),
-          color: Colors.white,
-        ),
-        //emoji button
-        Material(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 1.0),
-            child: IconButton(onPressed:showStickers, icon: Icon(Icons.face),color: Colors.lightBlueAccent,),
+          //emoji button
+          Material(
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 1.0),
+              child: IconButton(onPressed:showStickers, icon: Icon(Icons.face),color: Colors.lightBlueAccent,),
+            ),
+            color: Colors.white,
           ),
-          color: Colors.white,
-        ),
-        //message
-        Flexible(
-          child: Container(
-            child: TextField(
-              style: TextStyle(
-                color: Colors.black,fontSize: 15.0
-              ),
-              controller: textController,
-              focusNode: focusnode,
-              decoration: InputDecoration.collapsed(hintText: "Type a message ...",hintStyle: TextStyle(color: Colors.grey)),
+          //message
+          Flexible(
+            child: Container(
+              child: TextField(
+                style: TextStyle(
+                    color: Colors.black,fontSize: 15.0
+                ),
+                controller: textController,
+                focusNode: focusnode,
+                decoration: InputDecoration.collapsed(hintText: "Type a message ...",hintStyle: TextStyle(color: Colors.grey)),
 
+              ),
             ),
           ),
-        ),
-        //send button
-        Material(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 1.0),
-            child: IconButton(onPressed:() => onSendMessage(textController.text,0), icon: Icon(Icons.send),color: Colors.lightBlueAccent,),
+          //send button
+          Material(
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 1.0),
+              child: IconButton(onPressed:() => onSendMessage(textController.text,0), icon: Icon(Icons.send),color: Colors.lightBlueAccent,),
+            ),
+            color: Colors.white,
           ),
-          color: Colors.white,
-        ),
-      ],
-    ),
-    width: double.infinity,
-    height: 50.0,
-    decoration: BoxDecoration(
-      border: Border(
-        top: BorderSide(
-          color: Colors.grey,
-          width: 0.5
-        )
+        ],
       ),
+      width: double.infinity,
+      height: 50.0,
+      decoration: BoxDecoration(
+          border: Border(
+              top: BorderSide(
+                  color: Colors.grey,
+                  width: 0.5
+              )
+          ),
           color: Colors.white
-    ),
+      ),
 
-  );
+    );
   }
 
 }
