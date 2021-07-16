@@ -20,3 +20,4 @@ A simple chat application using firebase and flutter
 # errors
 - cannot automatically update messages<br>
 - cannot delete or edit messages
+- Pop up menu wont switch automatically
